@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>nCalculator-1.0-for-kids</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 360px;
+      margin: 0;
+      background: linear-gradient(135deg, #ffe29f, #ffa99f, #ff719a);
+    }
+    .calculator {
+      backdrop-filter: blur(6px);
+      background: rgba(255, 255, 255, 0.95);
+      padding: 18px;
+      border-radius: 18px;
+      box-shadow: 0 6px 18px rgba(0,0,0,0.12);
+      width: 300px;
+    }
+    .display {
+      width: 100%;
+      height: 56px;
+      font-size: 1.6rem;
+      border: none;
+      background: rgba(255,255,255,0.9);
+      border-radius: 12px;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.06);
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding: 0 14px;
+      margin-bottom: 18px;
+      box-sizing: border-box;
+      color: #222;
+    }
+    .buttons {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    button {
+      padding: 14px;
+      font-size: 1.1rem;
+      border: none;
+      border-radius: 14px;
+      cursor: pointer;
+      box-shadow: 0 3px 6px rgba(0,0,0,0.08);
+      transition: all 0.12s ease;
+      outline: none;
+      color: white;
+    }
+    button:hover { transform: translateY(-2px); }
+    button:active { transform: translateY(0); box-shadow: 0 2px 4px rgba(0,0,0,0.12) inset; }
+    .ac { background: linear-gradient(to bottom, #ff9a9e, #ff6a88); }
+    .backspace { background: linear-gradient(to bottom, #a18cd1, #fbc2eb); }
+    .op { background: linear-gradient(to bottom, #84fab0, #8fd3f4); }
+    .num { background: linear-gradient(to bottom, #fddb92, #d1fdff); color: #333; }
+    .enter { background: linear-gradient(to bottom, #fccb90, #d57eeb); grid-column: span 2; }
+  </style>
+</head>
+<body>
+  <div class="calculator" role="application" aria-label="nCalculator">
+    <input type="text" id="display" class="display" aria-live="polite" disabled value="">
+    <div class="buttons" role="group" aria-label="calculator buttons">
+      <button class="ac" id="ac">AC</button>
+      <button class="backspace" id="bs">⌫</button>
+      <button class="op" data-value="%" aria-label="percent">%</button>
+      <button class="op" data-value="/" aria-label="divide">÷</button>
+
+      <button class="num" data-value="7">7</button>
+      <button class="num" data-value="8">8</button>
+      <button class="num" data-value="9">9</button>
+      <button class="op" data-value="*" aria-label="multiply">×</button>
+
+      <button class="num" data-value="4">4</button>
+      <button class="num" data-value="5">5</button>
+      <button class="num" data-value="6">6</button>
+      <button class="op" data-value="-" aria-label="minus">−</button>
+
+      <button class="num" data-value="1">1</button>
+      <button class="num" data-value="2">2</button>
+      <button class="num" data-value="3">3</button>
+      <button class="op" data-value="+" aria-label="plus">+</button>
+
+      <button class="num" data-value="0" style="grid-column: span 1">0</button>
+      <button class="num" data-value=".">.</button>
+      <button class="enter" id="eq">=</button>
+    </div>
+  </div>
+
+  <script>
+  // --- Safe evaluator (shunting-yard -> RPN -> evaluate) ---
+  (() => {
+    const display = document.getElementById('display');
+
+    function isOperator(c) {
+      return ['+', '-', '*', '/', '%'].includes(c);
+    }
+    function precedence(op) {
+      if (op === '+' || op === '-') return 1;
+      if (op === '*' || op === '/' || op === '%') return 2;
+      return 0;
+    }
+
+    function toRPN(input) {
+      // Tokenize: numbers (with decimals), operators, parentheses
+      const tokens = [];
+      let num = '';
+      for (let i = 0; i < input.length; i++) {
+        const c = input[i];
+        if ((c >= '0' && c <= '9') || c === '.') {
+          num += c;
+        } else {
+          if (num) { tokens.push(num); num = ''; }
+          if (c.trim() === '') continue;
+          tokens.push(c);
+        }
+      }
+      if (num) tokens.push(num);
+
+      const outputQueue = [];
+      const opStack = [];
+
+      for (const token of tokens) {
+        if (!isNaN(token)) {
+          outputQueue.push(token);
+        } else if (isOperator(token)) {
+          while (opStack.length &&
+                 isOperator(opStack[opStack.length - 1]) &&
+                 precedence(opStack[opStack.length - 1]) >= precedence(token)) {
+            outputQueue.push(opStack.pop());
+          }
+          opStack.push(token);
+        } else if (token === '(') {
+          opStack.push(token);
+        } else if (token === ')') {
+          while (opStack.length && opStack[opStack.length - 1] !== '(') {
+            outputQueue.push(opStack.pop());
+          }
+          opStack.pop(); // remove '('
+        } else {
+          // unknown token — treat as error
+          throw new Error('Invalid token: ' + token);
+        }
+      }
+      while (opStack.length) {
+        const op = opStack.pop();
+        if (op === '(' || op === ')') throw new Error('Mismatched parentheses');
+        outputQueue.push(op);
+      }
+      return outputQueue;
+    }
+
+    function evalRPN(rpn) {
+      const st = [];
+      for (const token of rpn) {
+        if (!isNaN(token)) {
+          st.push(parseFloat(token));
+        } else if (isOperator(token)) {
+          if (st.length < 2) throw new Error('Malformed expression');
+          const b = st.pop();
+          const a = st.pop();
+          let res = 0;
+          if (token === '+') res = a + b;
+          else if (token === '-') res = a - b;
+          else if (token === '*') res = a * b;
+          else if (token === '/') {
+            if (b === 0) throw new Error('Division by zero');
+            res = a / b;
+          } else if (token === '%') res = a % b;
+          st.push(res);
+        } else {
+          throw new Error('Unsupported operator: ' + token);
+        }
+      }
+      if (st.length !== 1) throw new Error('Malformed expression');
+      return st[0];
+    }
+
+    function safeCalculate(expr) {
+      // support parentheses replacement for visual symbols if any
+      expr = expr.replace(/÷/g, '/').replace(/×/g, '*').replace(/−/g, '-');
+      // handle percent literal, e.g., "50%" -> "50 %", but in our evaluator we treat '%' as modulus.
+      // If you want percent-to-decimal semantics (50% = 0.5), convert here; currently '%' is modulus operator.
+      const rpn = toRPN(expr);
+      const val = evalRPN(rpn);
+      // trim floating noise
+      return parseFloat(val.toFixed(10)).toString();
+    }
+
+    // UI helpers
+    function append(val) {
+      // prevent multiple decimals in a single number
+      if (val === '.') {
+        const cur = display.value;
+        const lastNum = cur.split(/[\+\-\*\/\%]/).pop();
+        if (lastNum.includes('.')) return;
+      }
+      display.value += val;
+    }
+    function clearDisplay() { display.value = ''; }
+    function backspace() { display.value = display.value.slice(0, -1); }
+    function calculate() {
+      try {
+        if (!display.value.trim()) return;
+        display.value = safeCalculate(display.value);
+      } catch (err) {
+        display.value = 'Error';
+      }
+    }
+
+    // Attach button handlers
+    document.querySelectorAll('button[data-value]').forEach(btn => {
+      btn.addEventListener('click', () => append(btn.getAttribute('data-value')));
+    });
+    document.getElementById('ac').addEventListener('click', clearDisplay);
+    document.getElementById('bs').addEventListener('click', backspace);
+    document.getElementById('eq').addEventListener('click', calculate);
+
+    // keyboard support inside popup
+    document.addEventListener('keydown', (event) => {
+      const key = event.key;
+      if (/^[0-9]$/.test(key)) append(key);
+      else if (key === '.') append('.');
+      else if (key === '+' || key === '-') append(key);
+      else if (key === '*') append('*');
+      else if (key === '/') append('/');
+      else if (key === '%') append('%');
+      else if (key === 'Enter' || key === '=') calculate();
+      else if (key === 'Backspace') backspace();
+      else if (key === 'Escape') clearDisplay();
+    });
+  })();
+  </script>
+</body>
+</html>
