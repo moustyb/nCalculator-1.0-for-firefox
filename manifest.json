@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "nCalculator for Firefox",
+  "description": "A kid-friendly calculator popup (runs locally, no data collection).",
+  "version": "1.0.0",
+  "action": {
+    "default_title": "nCalculator",
+    "default_popup": "index.html"
+  },
+  "icons": {
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "permissions": [],
+  "host_permissions": [],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_security_policy": {
+    "extension_pages": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; object-src 'none';"
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "mbay.dev@gmail.com",
+      "strict_min_version": "115.0",
+      "data_collection_permissions": {
+        "collects_personal_data": false
+      }
+    }
+  }
+}
